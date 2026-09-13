@@ -1,35 +1,49 @@
 import streamlit as st
-from groq import Groq
+from deep_translator import GoogleTranslator
 from docx import Document
 import pypdf
 
 # Page Config
-st.set_page_config(page_title="Unlimited Fast Translator", layout="wide")
-st.title("🌐 Unlimited Fast Translator (Powered by Groq)")
+st.set_page_config(page_title="Free Unlimited Translator", layout="wide")
+st.title("🌐 Free Unlimited Translator (API Key မလိုပါ)")
 
-# 50+ Popular Languages List
-LANGUAGES = [
-    "Afrikaans", "Albanian", "Arabic", "Armenian", "Bengali", "Bosnian", "Bulgarian", 
-    "Burmese (Myanmar)", "Catalan", "Chinese (Simplified)", "Chinese (Traditional)", 
-    "Croatian", "Czech", "Danish", "Dutch", "English", "Estonian", "Filipino", 
-    "Finnish", "French", "German", "Greek", "Gujarati", "Hebrew", "Hindi", 
-    "Hungarian", "Indonesian", "Italian", "Japanese", "Javanese", "Kannada", 
-    "Khmer", "Korean", "Lao", "Malay", "Malayalam", "Marathi", "Nepali", 
-    "Norwegian", "Persian", "Polish", "Portuguese", "Punjabi", "Romanian", 
-    "Russian", "Serbian", "Sinhala", "Slovak", "Spanish", "Swahili", "Swedish", 
-    "Tamil", "Telugu", "Thai", "Turkish", "Ukrainian", "Urdu", "Vietnamese"
-]
+# Language Mapping Dictionary
+LANG_MAP = {
+    "Auto Detect": "auto",
+    "Burmese (Myanmar)": "my",
+    "English": "en",
+    "Chinese (Simplified)": "zh-CN",
+    "Chinese (Traditional)": "zh-TW",
+    "Japanese": "ja",
+    "Korean": "ko",
+    "Thai": "th",
+    "Vietnamese": "vi",
+    "French": "fr",
+    "German": "de",
+    "Spanish": "es",
+    "Russian": "ru",
+    "Hindi": "hi",
+    "Bengali": "bn",
+    "Indonesian": "id",
+    "Malay": "ms",
+    "Filipino": "tl",
+    "Italian": "it",
+    "Portuguese": "pt",
+    "Arabic": "ar",
+    "Turkish": "tr"
+}
 
-# Sidebar - Settings
-st.sidebar.header("⚙️ Settings")
-api_key = st.sidebar.text_input("Enter Groq API Key:", type="password")
+lang_names = list(LANG_MAP.keys())
 
 # Select Languages
 col1, col2 = st.columns(2)
 with col1:
-    src_lang = st.selectbox("From (မူရင်းဘာသာစကား):", ["Auto Detect"] + LANGUAGES)
+    src_lang_name = st.selectbox("From (မူရင်းဘာသာစကား):", lang_names)
 with col2:
-    target_lang = st.selectbox("To (ပြန်ဆိုချင်သည့်ဘာသာစကား):", LANGUAGES, index=LANGUAGES.index("Burmese (Myanmar)"))
+    target_lang_name = st.selectbox("To (ပြန်ဆိုချင်သည့်ဘာသာစကား):", lang_names[1:], index=0) # Default Burmese
+
+src_code = LANG_MAP[src_lang_name]
+target_code = LANG_MAP[target_lang_name]
 
 # Input Option (Text or File Upload)
 input_type = st.radio("ဘာသာပြန်မည့် နည်းလမ်း ရွေးပါ -", ["Direct Text", "File Upload (.txt, .docx, .pdf)"])
@@ -54,19 +68,17 @@ else:
                     input_text += extracted + "\n"
         st.success(f"File ဖတ်ပြီးပါပြီ။ စာလုံးရေစုစုပေါင်း: {len(input_text)} characters")
 
-# Chunking Function
-def chunk_text(text, max_chars=2500):
+# Chunking Function (4000-char အပိုင်းများ ခွဲခြင်း)
+def chunk_text(text, max_chars=4000):
     return [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
 
 # Translate Button
 if st.button("Translate Now", type="primary"):
-    if not api_key:
-        st.error("ကျေးဇူးပြု၍ Sidebar တွင် Groq API Key ထည့်ပါ။")
-    elif not input_text.strip():
+    if not input_text.strip():
         st.warning("စာသား သို့မဟုတ် File အရင်ထည့်ပါ။")
     else:
         try:
-            client = Groq(api_key=api_key)
+            translator = GoogleTranslator(source=src_code, target=target_code)
             
             chunks = chunk_text(input_text)
             translated_result = []
@@ -77,19 +89,10 @@ if st.button("Translate Now", type="primary"):
             for index, chunk in enumerate(chunks):
                 status_text.text(f"Translating part {index + 1} of {len(chunks)}...")
                 
-                if src_lang == "Auto Detect":
-                    prompt_content = f"Translate the following text into {target_lang}. Return ONLY the translated text without any explanation, markdown intro, or chat response:\n\n{chunk}"
-                else:
-                    prompt_content = f"Translate the following text from {src_lang} into {target_lang}. Return ONLY the translated text without any explanation, markdown intro, or chat response:\n\n{chunk}"
+                # Free Google Translate Call
+                translated_chunk = translator.translate(chunk)
+                translated_result.append(translated_chunk)
                 
-                response = client.chat.completions.create(
-                    messages=[
-                        {"role": "user", "content": prompt_content}
-                    ],
-                    model="llama-3.3-70b-versatile",
-                )
-                
-                translated_result.append(response.choices[0].message.content)
                 progress_bar.progress((index + 1) / len(chunks))
             
             status_text.text("Translation Complete!")
