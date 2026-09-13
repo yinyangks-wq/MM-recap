@@ -49,10 +49,12 @@ else:
         elif uploaded_file.name.endswith(".pdf"):
             pdf_reader = pypdf.PdfReader(uploaded_file)
             for page in pdf_reader.pages:
-                input_text += page.extract_text() + "\n"
+                extracted = page.extract_text()
+                if extracted:
+                    input_text += extracted + "\n"
         st.success(f"File ဖတ်ပြီးပါပြီ။ စာလုံးရေစုစုပေါင်း: {len(input_text)} characters")
 
-# Chunking Function (စာလုံးရေ အကန့်အသတ်မရှိအောင် 3000-char အပိုင်းများ ခွဲခြင်း)
+# Chunking Function (3000-char အပိုင်းများ ခွဲခြင်း)
 def chunk_text(text, max_chars=3000):
     return [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
 
@@ -65,7 +67,9 @@ if st.button("Translate Now", type="primary"):
     else:
         try:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            # Updated Model Name to avoid 404 Error
+            model = genai.GenerativeModel("gemini-1.5-flash-latest")
             
             chunks = chunk_text(input_text)
             translated_result = []
