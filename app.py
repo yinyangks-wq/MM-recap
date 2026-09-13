@@ -1,11 +1,11 @@
 import streamlit as st
-import google.generativeai as genai
+from groq import Groq
 from docx import Document
 import pypdf
 
 # Page Config
-st.set_page_config(page_title="Multi-Language Unlimited Translator", layout="wide")
-st.title("🌐 Multi-Language Unlimited Translator")
+st.set_page_config(page_title="Unlimited Fast Translator", layout="wide")
+st.title("🌐 Unlimited Fast Translator (Powered by Groq)")
 
 # 50+ Popular Languages List
 LANGUAGES = [
@@ -22,7 +22,7 @@ LANGUAGES = [
 
 # Sidebar - Settings
 st.sidebar.header("⚙️ Settings")
-api_key = st.sidebar.text_input("Enter Gemini API Key:", type="password")
+api_key = st.sidebar.text_input("Enter Groq API Key:", type="password")
 
 # Select Languages
 col1, col2 = st.columns(2)
@@ -54,22 +54,19 @@ else:
                     input_text += extracted + "\n"
         st.success(f"File ဖတ်ပြီးပါပြီ။ စာလုံးရေစုစုပေါင်း: {len(input_text)} characters")
 
-# Chunking Function (3000-char အပိုင်းများ ခွဲခြင်း)
-def chunk_text(text, max_chars=3000):
+# Chunking Function
+def chunk_text(text, max_chars=2500):
     return [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
 
 # Translate Button
 if st.button("Translate Now", type="primary"):
     if not api_key:
-        st.error("ကျေးဇူးပြု၍ Sidebar တွင် Gemini API Key ထည့်ပါ။")
+        st.error("ကျေးဇူးပြု၍ Sidebar တွင် Groq API Key ထည့်ပါ။")
     elif not input_text.strip():
         st.warning("စာသား သို့မဟုတ် File အရင်ထည့်ပါ။")
     else:
         try:
-            genai.configure(api_key=api_key)
-            
-            # Updated Model Name to avoid 404 Error
-            model = genai.GenerativeModel("gemini-1.5-flash-latest")
+            client = Groq(api_key=api_key)
             
             chunks = chunk_text(input_text)
             translated_result = []
@@ -81,13 +78,18 @@ if st.button("Translate Now", type="primary"):
                 status_text.text(f"Translating part {index + 1} of {len(chunks)}...")
                 
                 if src_lang == "Auto Detect":
-                    prompt = f"Translate the following text to {target_lang}. Preserve the original context and formatting:\n\n{chunk}"
+                    prompt_content = f"Translate the following text into {target_lang}. Return ONLY the translated text without any explanation, markdown intro, or chat response:\n\n{chunk}"
                 else:
-                    prompt = f"Translate the following text from {src_lang} to {target_lang}. Preserve the original context and formatting:\n\n{chunk}"
+                    prompt_content = f"Translate the following text from {src_lang} into {target_lang}. Return ONLY the translated text without any explanation, markdown intro, or chat response:\n\n{chunk}"
                 
-                response = model.generate_content(prompt)
-                translated_result.append(response.text)
+                response = client.chat.completions.create(
+                    messages=[
+                        {"role": "user", "content": prompt_content}
+                    ],
+                    model="llama-3.3-70b-versatile",
+                )
                 
+                translated_result.append(response.choices[0].message.content)
                 progress_bar.progress((index + 1) / len(chunks))
             
             status_text.text("Translation Complete!")
