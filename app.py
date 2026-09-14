@@ -6,12 +6,14 @@ import pypdf
 st.set_page_config(page_title="Text Splitter / Chunker", layout="wide")
 st.title("✂️ စာသားနှင့် File များကို အပိုင်းလိုက် ခွဲပေးသည့် Tool")
 
-# Input Option (Text or File Upload)
-input_type = st.radio("စာသားထည့်သွင်းမည့် နည်းလမ်း ရွေးပါ -", ["Direct Text", "File Upload (.txt, .docx, .pdf)"])
-
-# Streamlit Session State ဖြင့် စာသားကို ခိုင်မာစွာ မှတ်ထားခြင်း
+# Initialize Session States
 if "stored_text" not in st.session_state:
     st.session_state.stored_text = ""
+if "chunks" not in st.session_state:
+    st.session_state.chunks = []
+
+# Input Option (Text or File Upload)
+input_type = st.radio("စာသားထည့်သွင်းမည့် နည်းလမ်း ရွေးပါ -", ["Direct Text", "File Upload (.txt, .docx, .pdf)"])
 
 if input_type == "Direct Text":
     user_input = st.text_area("ခွဲချင်သည့် စာသားများကို အောက်တွင် ထည့်ပါ -", value=st.session_state.stored_text, height=250)
@@ -58,31 +60,33 @@ def split_by_lines(text, size):
     lines = text.split("\n")
     return ["\n".join(lines[i:i+size]) for i in range(0, len(lines), size)]
 
-# Split Action
+# Split Action Button
 if st.button("Split Text Now (စာသား အပိုင်းခွဲမည်)", type="primary"):
     current_text = st.session_state.stored_text.strip()
     
     if not current_text:
         st.warning("ကျေးဇူးပြု၍ စာသား သို့မဟုတ် File အရင်ထည့်ပါ။")
+        st.session_state.chunks = []
     else:
         if split_method == "စာလုံးရေ အလိုက် (By Characters)":
-            chunks = split_by_chars(current_text, chunk_size)
+            st.session_state.chunks = split_by_chars(current_text, chunk_size)
         else:
-            chunks = split_by_lines(current_text, chunk_size)
-        
-        st.success(f"စာသားများကို စုစုပေါင်း **{len(chunks)} အပိုင်း** (Parts) ခွဲပေးလိုက်ပါပြီ။")
-        st.markdown("---")
-        
-        # Display Result Chunks
-        for index, chunk in enumerate(chunks):
-            with st.expander(f"📌 Part {index + 1} (စာလုံးရေ: {len(chunk)} characters)", expanded=True):
-                st.text_area(f"Part {index + 1} Content:", value=chunk, height=200, key=f"chunk_{index}")
-                
-                # Individual Download Button
-                st.download_button(
-                    label=f"Download Part {index + 1} (.txt)",
-                    data=chunk,
-                    file_name=f"part_{index + 1}.txt",
-                    mime="text/plain",
-                    key=f"dl_{index}"
-                )
+            st.session_state.chunks = split_by_lines(current_text, chunk_size)
+
+# Display Chunks from Session State (This avoids resetting on download)
+if st.session_state.chunks:
+    st.success(f"စာသားများကို စုစုပေါင်း **{len(st.session_state.chunks)} အပိုင်း** (Parts) ခွဲပေးလိုက်ပါပြီ။")
+    st.markdown("---")
+    
+    for index, chunk in enumerate(st.session_state.chunks):
+        with st.expander(f"📌 Part {index + 1} (စာလုံးရေ: {len(chunk)} characters)", expanded=True):
+            st.text_area(f"Part {index + 1} Content:", value=chunk, height=200, key=f"chunk_{index}")
+            
+            # Individual Download Button
+            st.download_button(
+                label=f"Download Part {index + 1} (.txt)",
+                data=chunk,
+                file_name=f"part_{index + 1}.txt",
+                mime="text/plain",
+                key=f"dl_{index}"
+            )
